@@ -2,6 +2,19 @@
  "_info": "Aenderungen je Version, neueste zuerst. Wird nach einem Update in der App angezeigt (in der Sprache der Oberflaeche) und als Text des GitHub-Releases verwendet. Vor jedem Release einen Eintrag fuer die neue Version anlegen, notfalls nur mit Fehlerbehebungen.",
  "versions": [
   {
+   "version": "1.2.7",
+   "date": "2026-11-13",
+   "de": [
+    "Kamera schneller: Der Name wird schon parallel zur Nummer gelesen. Passen Name und Nummer zusammen, ist die Karte nach einer einzigen Lesung erkannt."
+   ],
+   "en": [
+    "Faster camera: the name is read in parallel with the number. If name and number match, the card is recognised after a single read."
+   ],
+   "es": [
+    "Cámara más rápida: el nombre se lee a la vez que el número. Si nombre y número coinciden, la carta se reconoce con una sola lectura."
+   ]
+  },
+  {
    "version": "1.2.6",
    "date": "2026-11-13",
    "de": [

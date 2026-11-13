@@ -2018,14 +2018,27 @@ async function readName() {                          // Kopfzeile der Karte (Nam
   RAW.push("Name: " + (out.join(" | ") || "–")); showRaw();
   return out.join(" ");
 }
-async function matchScan(num, den, lt) {              // Name + Nummer gemeinsam abgleichen; true, wenn Treffer angezeigt wurden
+async function nameMatch(num, den, lt) {              // Name lesen und mit der Nummer abgleichen (ohne Anzeige)
   const name = await readName();
-  if (!name) return false;
-  const r = await post("/api/scan-match", {name_text: name, num, den: den || "", lang: $("#lang").value, pref: guessLang(lt || name)});
-  if (!r.cards || !r.cards.length) return false;
-  if (r.name) $("#ocr").textContent = `Erkannt: ${r.name} ${num}${den ? "/" + den : ""}`;
+  if (!name) return null;
+  return await post("/api/scan-match", {name_text: name, num, den: den || "", lang: $("#lang").value, pref: guessLang(lt || name)});
+}
+function startNameMatch(num, den) {                   // Abgleich im Hintergrund starten: läuft parallel zur zweiten Nummernlesung (eigene Texterkennung)
+  const key = `${num}/${den}`;
+  if (!AS.pm || AS.pm.key !== key) AS.pm = {key, p: nameMatch(num, den, "").catch(() => null)};
+  return AS.pm.p;
+}
+function showMatch(r, num, den) {
+  if (!r || !r.cards || !r.cards.length) return false;
+  $("#num").value = num;
+  $("#ocr").textContent = `Erkannt: ${r.name ? r.name + " " : ""}${num}${den ? "/" + den : ""}`;
   showCandidates(r.cards);
   return true;
+}
+async function matchScan(num, den, lt) {              // Name + Nummer gemeinsam abgleichen; true, wenn Treffer angezeigt wurden
+  const key = `${num}/${den}`;
+  const r = AS.pm && AS.pm.key === key ? await AS.pm.p : await nameMatch(num, den, lt);
+  return showMatch(r, num, den);
 }
 
 async function accept(r, strip, ctx) {
@@ -2034,6 +2047,8 @@ async function accept(r, strip, ctx) {
   if (navigator.vibrate) navigator.vibrate(60);
   FROM_SCAN = true; sfx("scan");
   let lt = "";
+  const pre = AS.pm && AS.pm.key === `${r.num}/${r.den}` ? await AS.pm.p : null;
+  if (pre && pre.agreed && showMatch(pre, r.num, r.den)) return;   // Name hat die Nummer schon bestätigt: sofort fertig
   if ($("#lang").value === "auto") { try { const tx = CARDTXT || strip; lt = await ocr(prepCanvas(tx, 0, tx.width, false, false), "11", "", true); } catch (e) {} }   // Kartentext für die Spracherkennung
   const inSet = !!ctx.chosen && ctx.dens.includes(r.den);
   if (!inSet && await matchScan(r.num, r.den, lt)) return;     // Name bestätigt die Nummer (oder findet die Karte trotz falsch gelesener Set-Größe)
@@ -2052,6 +2067,15 @@ async function autoStep() {
     const act = autoDecide(AS, r);
     $("#ocr").textContent = {none: "Suche Kartennummer …", weak: `Unsicher gelesen: ${r.num}/${r.den}, bitte ruhiger halten oder näher ran`,
       blocked: "Karte erkannt. Für die nächste Karte die Karte kurz aus dem Bild nehmen.", wait: `Gelesen: ${r.num}/${r.den}, noch einmal bestätigen …`, accept: ""}[act];
+    if (act === "wait" && !(ctx.chosen && ctx.dens.includes(r.den))) {   // erste sichere Nummer: Namen schon jetzt lesen
+      const key = `${r.num}/${r.den}`;
+      startNameMatch(r.num, r.den).then(m => {          // passen Name und Nummer zusammen, reicht diese eine Lesung
+        if (!m || !m.agreed || AS.blocked === key || AS.key !== key || pendingUI()) return;
+        AS.blocked = key; AS.key = ""; AS.n = 0;
+        if (navigator.vibrate) navigator.vibrate(60);
+        FROM_SCAN = true; sfx("scan"); showMatch(m, r.num, r.den);
+      });
+    }
     if (act === "accept") await accept(r, strip, ctx);
     else if (act === "weak") {                            // Nummer unsicher (z. B. Set-Größe unlesbar): zweimal dieselbe Nummer -> mit dem Namen nachsehen
       const wk = `${r.num}/${r.den}`;

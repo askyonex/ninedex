@@ -68,10 +68,13 @@ button.alt:active{box-shadow:0 2px 0 var(--red-d)}
 :focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
 #set{width:280px}#num{width:110px}
 .dialog{margin:18px 40px;padding:16px 18px;background:var(--panel);border:2px solid var(--cyan);border-radius:12px;color:var(--txt)}
-#cam{display:none;gap:18px;flex-wrap:wrap}#msg{display:none}
+#cam{display:none;gap:18px;flex-wrap:wrap}#cam>div{min-width:0;max-width:100%;flex:1 1 300px}#cam select{max-width:100%}#cam>div:first-child{flex:0 1 420px}#msg{display:none}
 #camTools{display:none;gap:12px;align-items:center;flex-wrap:wrap}#zoomR{width:160px}
 .ocr{color:var(--mute)}
-#vwrap{position:relative;width:420px;max-width:100%}
+#vwrap{position:relative;width:420px;max-width:100%;overflow:hidden;border-radius:8px;background:#000}#vzoom{transform-origin:0 0}
+#cardBox{display:none;position:absolute;border:3px solid var(--yel);border-radius:10px;box-shadow:0 0 0 9999px rgba(4,10,16,.5);pointer-events:none;box-sizing:border-box}
+#cardBox i{position:absolute;left:0;right:0;bottom:0;height:12.5%;border-top:2px dashed var(--yel);background:rgba(255,203,5,.12)}
+#cam.mcard #cardBox{display:block}#cam.mcard #zoneBox,#cam.mcard .cm-strip,#cam:not(.mcard) .cm-card{display:none}
 #video{width:100%;display:block;border-radius:8px;background:#000}
 #zoneBox{position:absolute;left:0;right:0;bottom:0;height:30%;border:3px solid var(--yel);border-radius:0 0 8px 8px;pointer-events:none}
 #crop{width:420px;max-width:100%;border-radius:6px;display:block;margin-top:6px}
@@ -362,11 +365,14 @@ textarea{width:100%;padding:8px 10px;font:20px/1.1 var(--vt);background:var(--na
   </div>
 </header>
 <div id="cam" class="dialog">
-  <div><div id="vwrap"><video id="video" autoplay playsinline muted></video><div id="zoneBox"></div></div><canvas id="crop"></canvas></div>
+  <div><div id="vwrap"><div id="vzoom"><video id="video" autoplay playsinline muted></video></div><div id="zoneBox"></div><div id="cardBox"><i></i></div></div><canvas id="crop"></canvas></div>
   <div>
-    <p>Karte ruhig halten, die Nummer (z. B. <b>F 147/196</b>) im gelben Rahmen. Die App liest automatisch mit und erkennt eine Karte, sobald zweimal dieselbe Nummer gelesen wurde. Set und Sprache werden automatisch erkannt.</p>
+    <p class="cm-strip">Karte ruhig halten, die Nummer (z. B. <b>F 147/196</b>) im gelben Rahmen. Die App liest automatisch mit und erkennt eine Karte, sobald zweimal dieselbe Nummer gelesen wurde. Set und Sprache werden automatisch erkannt.</p>
+    <p class="cm-card">Karte genau in den gelben Rahmen legen: Die App liest nur den gestrichelten Bereich unten, dort steht die Nummer. Rahmen einmal mit „Rahmengröße“ und „Höhe“ an deine Halterung anpassen, das merkt sich das Gerät.</p>
+    <p><label>Lesebereich <select id="camMode"><option value="card">Kartenrahmen (Halterung / Stativ)</option><option value="strip">Streifen unten (Karte in der Hand)</option></select></label></p>
+    <p class="cm-card"><label>Rahmengröße <input type="range" id="cardSize" min="15" max="96" value="45"></label> <label>Höhe <input type="range" id="cardY" min="0" max="100" value="50"></label></p>
     <p><label><input type="checkbox" id="autoScan" checked> Automatisch scannen</label></p>
-    <p><label>Lesebereich von unten <input type="range" id="zone" min="15" max="100" value="30"></label></p>
+    <p class="cm-strip"><label>Lesebereich von unten <input type="range" id="zone" min="15" max="100" value="30"></label></p>
     <p id="camTools"><label id="zoomL">Zoom <input type="range" id="zoomR"></label><button id="torchBtn" class="alt">Licht</button></p>
     <select id="cams"></select> <button id="scan">Jetzt scannen</button> <span>oder Leertaste / aufs Videobild tippen</span>
     <p><label>KI-Hilfe <select id="aiMode" title="KI zur Kartenerkennung (genauer als die reine Texterkennung)"><option value="off">Aus</option><option value="manual">Bei "Jetzt scannen"</option><option value="auto">Automatisch bei Stillstand</option></select></label>
@@ -1816,7 +1822,8 @@ let RAW = [];                                     // Rohtext der letzten Lesever
 
 async function startCam(deviceId) {
   if (stream) stream.getTracks().forEach(t => t.stop());
-  const video = {width: {ideal: 1920}, height: {ideal: 1080}};
+  const hi = camMode() === "card";                  // Kartenrahmen: möglichst hohe Auflösung, die Nummer ist nur wenige Pixel hoch
+  const video = {width: {ideal: hi ? 3840 : 1920}, height: {ideal: hi ? 2160 : 1080}};
   if (deviceId) video.deviceId = {exact: deviceId}; else video.facingMode = {ideal: "environment"};  // Rückkamera bevorzugen
   try { stream = await navigator.mediaDevices.getUserMedia({video}); }
   catch (e) { return show("Kamera nicht verfügbar: " + e.message); }
@@ -1831,6 +1838,33 @@ async function startCam(deviceId) {
   const cur = track.getSettings().deviceId;
   const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "videoinput");
   $("#cams").innerHTML = devs.map((d, i) => `<option value="${d.deviceId}" ${d.deviceId === cur ? "selected" : ""}>${d.label || "Kamera " + (i + 1)}</option>`).join("");
+}
+/* Kartenrahmen: fester Rahmen im Seitenverhältnis einer Karte (63 x 88 mm). Gelesen wird nur der untere Rand der Karte. */
+const camMode = () => $("#camMode").value;
+function camGeom(v) {                                 // Karten-Rechteck in Videopixeln
+  const vw = v.videoWidth, vh = v.videoHeight;
+  let h = vh * $("#cardSize").value / 100, w = h * 63 / 88;
+  if (w > vw * 0.98) { w = vw * 0.98; h = w * 88 / 63; }
+  const cy = h / 2 + (vh - h) * $("#cardY").value / 100;
+  return {x: (vw - w) / 2, y: cy - h / 2, w, h, vw, vh};
+}
+function layoutCam() {                                // Rahmen zeichnen; Vorschau so vergrößern, dass der Rahmen gut zu sehen ist
+  const v = $("#video"), z = $("#vzoom"), box = $("#cardBox");
+  $("#cam").classList.toggle("mcard", camMode() === "card");
+  if (camMode() !== "card" || !v.videoWidth) { z.style.transform = ""; return; }
+  const g = camGeom(v), s = $("#vwrap").clientWidth / g.vw;
+  const k = Math.max(1, Math.min(4, 0.82 * g.vh / g.h, 0.9 * g.vw / g.w));
+  const ox = (g.x + g.w / 2) * s, oy = (g.y + g.h / 2) * s, mx = g.vw * s / 2, my = g.vh * s / 2;   // Rahmen in die Mitte der Vorschau schieben
+  z.style.transformOrigin = `${ox}px ${oy}px`; z.style.transform = `translate(${mx - ox}px,${my - oy}px) scale(${k})`;
+  box.style.width = g.w * s * k + "px"; box.style.height = g.h * s * k + "px";
+  box.style.left = mx - g.w * s * k / 2 + "px"; box.style.top = my - g.h * s * k / 2 + "px";
+}
+function cutVideo(v, x, y, w, h) {                    // Ausschnitt des Kamerabilds in voller Auflösung
+  x = Math.max(0, Math.round(x)); y = Math.max(0, Math.round(y));
+  w = Math.max(8, Math.min(v.videoWidth - x, Math.round(w))); h = Math.max(8, Math.min(v.videoHeight - y, Math.round(h)));
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  c.getContext("2d").drawImage(v, x, y, w, h, 0, 0, w, h);
+  return c;
 }
 function stopCam() { if (stream) stream.getTracks().forEach(t => t.stop()); stream = track = null; clearTimeout(loopT); }
 
@@ -1887,13 +1921,17 @@ function sharp(c) {                                   // grobe Schärfemessung: 
   for (let i = 4; i < p.length; i += 4) s += Math.abs(p[i] - p[i - 4]);
   return s;
 }
+let CARDTXT = null;                                   // unteres Kartendrittel des letzten Bilds (Text für die Spracherkennung)
 async function bestFrame(v) {                         // drei Bilder aufnehmen, das schärfste nehmen (gegen Wackeln)
   const h = Math.max(40, Math.round(v.videoHeight * $("#zone").value / 100));
+  const card = camMode() === "card", g = card ? camGeom(v) : null;
   let best = null, bs = -1;
   for (let i = 0; i < 3; i++) {
-    const c = document.createElement("canvas"); c.width = v.videoWidth; c.height = h;
-    c.getContext("2d").drawImage(v, 0, v.videoHeight - h, v.videoWidth, h, 0, 0, v.videoWidth, h);
-    const s = sharp(c); if (s > bs) { bs = s; best = c; }
+    let c;
+    if (card) c = cutVideo(v, g.x - g.w * 0.02, g.y + g.h * 0.875, g.w * 1.04, g.h * 0.135);   // nur der untere Rand der Karte
+    else { c = document.createElement("canvas"); c.width = v.videoWidth; c.height = h;
+      c.getContext("2d").drawImage(v, 0, v.videoHeight - h, v.videoWidth, h, 0, 0, v.videoWidth, h); }
+    const s = sharp(c); if (s > bs) { bs = s; best = c; CARDTXT = card ? cutVideo(v, g.x, g.y + g.h * 0.5, g.w, g.h * 0.5) : null; }
     if (i < 2) await new Promise(r => setTimeout(r, 90));
   }
   return best;
@@ -1917,7 +1955,7 @@ function binarizeData(p, w, h) {                      // lokale Schwelle: deutli
   for (let i = 0; i < out.length; i++) { p[i * 4] = p[i * 4 + 1] = p[i * 4 + 2] = out[i]; }
 }
 function prepCanvas(src, sx, sw, invert, bin) {       // Ausschnitt hochskalieren, Graustufen, Kontrast automatisch spreizen, optional invertieren / binarisieren
-  const k = Math.min(4, 1200 / sw), c = document.createElement("canvas");
+  const k = Math.min(6, 1600 / sw), c = document.createElement("canvas");
   c.width = Math.round(sw * k); c.height = Math.round(src.height * k);
   const ctx = c.getContext("2d"); ctx.imageSmoothingQuality = "high";
   ctx.drawImage(src, sx, 0, sw, src.height, 0, 0, c.width, c.height);
@@ -1939,7 +1977,7 @@ function prepCanvas(src, sx, sw, invert, bin) {       // Ausschnitt hochskaliere
 function showCrop(c) { const o = $("#crop"); o.width = c.width; o.height = c.height; o.getContext("2d").drawImage(c, 0, 0); }
 
 async function readNumber(strip, dens, deep) {        // links und rechts unten getrennt, normal / invertiert / binarisiert, nur Ziffern und "/"
-  const sw = Math.round(strip.width * 0.5), starts = [0, strip.width - sw];
+  const sw = Math.round(strip.width * 0.55), starts = [0, strip.width - sw];   // Hälften überlappen etwas, damit keine Nummer zerschnitten wird
   const order = [];
   for (const bin of [0, 1]) for (const inv of [0, 1]) for (const sx of [0, 1]) order.push({sx, inv, bin});
   order.sort((a, b) => (b.sx === LAST.sx && b.inv === LAST.inv && b.bin === LAST.bin) - (a.sx === LAST.sx && a.inv === LAST.inv && a.bin === LAST.bin));
@@ -1981,7 +2019,7 @@ async function accept(r, strip, ctx) {
   if (navigator.vibrate) navigator.vibrate(60);
   FROM_SCAN = true; sfx("scan");
   let lt = "";
-  if ($("#lang").value === "auto") { try { lt = await ocr(prepCanvas(strip, 0, strip.width, false, false), "11", "", true); } catch (e) {} }   // Kartentext für die Spracherkennung
+  if ($("#lang").value === "auto") { try { const tx = CARDTXT || strip; lt = await ocr(prepCanvas(tx, 0, tx.width, false, false), "11", "", true); } catch (e) {} }   // Kartentext für die Spracherkennung
   await detect(r.num, r.den, lt, !!ctx.chosen && ctx.dens.includes(r.den));
 }
 
@@ -2022,9 +2060,12 @@ function updateAIUi() {
 }
 async function loadAI() { try { AIC = await (await fetch("/api/ai/config")).json(); } catch (e) {} updateAIUi(); }
 function grabFrame(maxW = 1280) {                     // ganzes Kamerabild als JPEG (für die KI)
-  const v = $("#video"), k = Math.min(1, maxW / v.videoWidth), c = document.createElement("canvas");
-  c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k);
-  c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+  const v = $("#video");
+  let src = v, sw = v.videoWidth, sh = v.videoHeight;
+  if (camMode() === "card") { const g = camGeom(v); src = cutVideo(v, g.x - g.w * 0.06, g.y - g.h * 0.04, g.w * 1.12, g.h * 1.08); sw = src.width; sh = src.height; }   // nur die Karte
+  const k = Math.min(1, maxW / sw), c = document.createElement("canvas");
+  c.width = Math.round(sw * k); c.height = Math.round(sh * k);
+  c.getContext("2d").drawImage(src, 0, 0, c.width, c.height);
   return c.toDataURL("image/jpeg", 0.85);
 }
 function motion() {                                   // Bewegung im Bild: mittlere Helligkeitsänderung seit dem letzten Aufruf (kleine Vorschau)
@@ -2065,6 +2106,7 @@ async function scan() {                               // sofort scannen (Knopf, 
     if (aiMode() !== "off" && await aiScan()) return;     // KI zuerst (genauer), sonst die lokale Texterkennung
     const ctx = setCtx(), strip = await bestFrame(v), r = await readNumber(strip, ctx.dens, true);
     showRaw();
+    if (!r.num && camMode() === "card") return show("Keine Kartennummer erkannt. Liegt die Karte genau im gelben Rahmen? Der untere Kartenrand muss im gestrichelten Bereich liegen. Rahmen mit „Rahmengröße“ und „Höhe“ anpassen, bei Spiegelungen das Licht seitlich stellen. Mit \"Diagnose anzeigen\" siehst du, was gelesen wird.");
     if (!r.num) return show("Keine Kartennummer erkannt. Karte näher ranhalten (ca. 15 bis 20 cm), Licht seitlich statt von vorn, bei Spiegelungen die Karte leicht kippen, den gelben Rahmen über die Nummer legen oder die Nummer manuell eintippen. Mit \"Diagnose anzeigen\" siehst du, was gelesen wird.");
     AS.blocked = `${r.num}/${r.den}`; AS.key = ""; AS.n = 0;
     await accept(r, strip, ctx);
@@ -2082,6 +2124,13 @@ $("#camBtn").onclick = () => {
   startCam().then(() => { ensureWorker().then(() => { $("#ocr").textContent = "Suche Kartennummer …"; loop(); }).catch(e => $("#ocr").textContent = "Texterkennung konnte nicht geladen werden: " + e.message); });
 };
 $("#zone").oninput = e => $("#zoneBox").style.height = e.target.value + "%";
+for (const id of ["camMode", "cardSize", "cardY"]) {                 // Einstellungen des Kartenrahmens merkt sich das Gerät
+  try { const sv = localStorage.getItem(id); if (sv !== null) $("#" + id).value = sv; } catch (e) {}
+  $("#" + id).addEventListener("input", () => { try { localStorage.setItem(id, $("#" + id).value); } catch (e) {} AS.key = ""; AS.n = 0; layoutCam(); });
+}
+$("#camMode").addEventListener("change", () => { if (stream) startCam($("#cams").value).then(layoutCam); });   // andere Auflösung je Modus
+$("#video").addEventListener("loadedmetadata", layoutCam); $("#video").addEventListener("resize", layoutCam);
+window.addEventListener("resize", layoutCam); layoutCam();
 $("#dbg").onchange = e => { $("#cam").classList.toggle("dbg", e.target.checked); };
 $("#zoomR").oninput = e => { if (track) track.applyConstraints({advanced: [{zoom: +e.target.value}]}).catch(() => {}); };
 let torchOn = false;

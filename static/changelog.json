@@ -2,6 +2,22 @@
  "_info": "Aenderungen je Version, neueste zuerst. Wird nach einem Update in der App angezeigt (in der Sprache der Oberflaeche) und als Text des GitHub-Releases verwendet. Vor jedem Release einen Eintrag fuer die neue Version anlegen, notfalls nur mit Fehlerbehebungen.",
  "versions": [
   {
+   "version": "1.2.6",
+   "date": "2026-11-13",
+   "de": [
+    "Kamera: neuer Lesebereich „Kartenrahmen“ für Halterung oder Stativ. Karte in den Rahmen legen, die App liest gezielt den unteren Kartenrand in hoher Auflösung. Die Vorschau vergrößert den Rahmen automatisch.",
+    "Kamera: Texte laufen auf dem Handy nicht mehr über den Rand"
+   ],
+   "en": [
+    "Camera: new reading area “Card frame” for a stand or tripod. Place the card inside the frame and the app reads just the bottom edge of the card in high resolution. The preview zooms to the frame automatically.",
+    "Camera: texts no longer overflow on phones"
+   ],
+   "es": [
+    "Cámara: nueva zona de lectura «Marco de carta» para soporte o trípode. Coloca la carta dentro del marco y la app lee solo el borde inferior de la carta en alta resolución. La vista previa amplía el marco automáticamente.",
+    "Cámara: los textos ya no se salen de la pantalla en el móvil"
+   ]
+  },
+  {
    "version": "1.2.5",
    "date": "2026-10-28",
    "de": [

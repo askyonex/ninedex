@@ -367,6 +367,7 @@ textarea{width:100%;padding:8px 10px;font:20px/1.1 var(--vt);background:var(--na
   <div><div id="vwrap"><div id="vzoom"><video id="video" autoplay playsinline muted></video></div><div id="cardBox"><b></b><i></i></div></div><canvas id="crop"></canvas></div>
   <div>
     <p>Karte in den gelben Rahmen legen. Die App liest oben den Namen und unten im gestrichelten Bereich die Nummer und gleicht beides ab. Den Rahmen stellst du einmal mit „Rahmengröße“ und „Höhe“ passend ein, das merkt sich das Gerät.</p>
+    <p id="zoomHint" class="ocr" style="display:none">Tipp: Mit „Zoom“ die Karte größer holen, bis sie fast das ganze Bild füllt, dann den Rahmen anpassen. Das bringt deutlich mehr Schärfe als die Vergrößerung der Vorschau.</p>
     <p><label>Rahmengröße <input type="range" id="cardSize" min="15" max="96" value="45"></label> <label>Höhe <input type="range" id="cardY" min="0" max="100" value="50"></label></p>
     <p><label><input type="checkbox" id="autoScan" checked> Automatisch scannen</label></p>
     <p id="camTools"><label id="zoomL">Zoom <input type="range" id="zoomR"></label><button id="torchBtn" class="alt">Licht</button></p>
@@ -1811,7 +1812,7 @@ $("#tbody").onclick = async e => {
 };
 
 /* Kamera-Scan: automatisch mitlesen, Ecken einzeln hochskaliert lesen, scharfes Bild wählen, zweimal dieselbe Nummer = erkannt */
-let stream = null, track = null, wNum = null, wLang = null, scanning = false, loopT = null;
+let stream = null, track = null, wNum = null, wLang = null, wName = null, scanning = false, loopT = null;
 const AS = {key: "", n: 0, blocked: ""};          // Zustand des automatischen Scans
 let LAST = {sx: 0, inv: 0, bin: 0};               // zuletzt erfolgreiche Variante wird zuerst probiert
 let RAW = [];                                     // Rohtext der letzten Leseversuche (Diagnose)
@@ -1828,7 +1829,7 @@ async function startCam(deviceId) {
   const cap = track.getCapabilities ? track.getCapabilities() : {};
   try { if (cap.focusMode && cap.focusMode.includes("continuous")) await track.applyConstraints({advanced: [{focusMode: "continuous"}]}); } catch (e) {}
   $("#camTools").style.display = cap.zoom || cap.torch ? "flex" : "none";       // Zoom und Licht gibt es nur auf manchen Geräten (z. B. Android)
-  $("#zoomL").style.display = cap.zoom ? "" : "none";
+  $("#zoomL").style.display = cap.zoom ? "" : "none"; $("#zoomHint").style.display = cap.zoom ? "" : "none";
   $("#torchBtn").style.display = cap.torch ? "" : "none";
   if (cap.zoom) { const z = $("#zoomR"); z.min = cap.zoom.min; z.max = cap.zoom.max; z.step = cap.zoom.step || 0.1; z.value = (track.getSettings().zoom) || cap.zoom.min; }
   const cur = track.getSettings().deviceId;
@@ -1990,7 +1991,11 @@ async function readNumber(strip, dens, deep) {        // links und rechts unten 
   }
   return weak ? {...weak, strong: false} : {};
 }
-function showRaw() { $("#raw").textContent = RAW.slice(-10).join("\n"); }
+function showRaw() {                                  // Diagnose: Auflösung der Kamera und Größe der Karte im Bild, dann die letzten Leseversuche
+  const v = $("#video"); let head = "";
+  if (v.videoWidth) { const g = camGeom(v); head = `Kamera ${v.videoWidth}×${v.videoHeight} · Karte ${Math.round(g.w)}×${Math.round(g.h)} px\n`; }
+  $("#raw").textContent = head + RAW.slice(-10).join("\n");
+}
 
 function autoDecide(st, r) {                          // zweimal dieselbe Nummer in Folge = erkannt; dieselbe Karte nicht doppelt
   if (!r.num) { st.key = ""; st.n = 0; st.blocked = ""; return "none"; }   // keine Nummer im Bild: Karte wurde weggenommen
@@ -2009,13 +2014,19 @@ function setCtx() {
 const pendingUI = () => ["#modal", "#smodal", "#pmodal", "#cmodal", "#stmodal", "#tmodal", "#bmodal", "#qmodal", "#sumodal", "#aimodal", "#gmodal", "#vmodal"].some(id => $(id).style.display === "block")
   || !!$("#msg").querySelector("[data-i],[data-act],#rep");        // wartet gerade eine Auswahl auf dich?
 
-async function readName() {                          // Kopfzeile der Karte (Name) lesen, normal und invertiert (Fullarts: helle Schrift)
+async function readName() {                          // Kopfzeile der Karte (Name) lesen: normal, invertiert (helle Schrift) und binarisiert (Schrift auf Motiv)
   const v = $("#video"), g = camGeom(v), c = cutVideo(v, g.x + g.w * 0.03, g.y + g.h * 0.02, g.w * 0.69, g.h * 0.095);
   const out = [];
-  for (const inv of [false, true]) {
-    try { const t = (await ocr(prepCanvas(c, 0, c.width, inv, false), "7", "", true)).replace(/\s+/g, " ").trim(); if (t) out.push(t); } catch (e) {}
-  }
-  RAW.push("Name: " + (out.join(" | ") || "–")); showRaw();
+  try {
+    if (!wName) wName = await Tesseract.createWorker("eng");   // eigene Texterkennung: läuft parallel zur Nummer, ohne sich in die Quere zu kommen
+    await wName.setParameters({tessedit_pageseg_mode: "7", tessedit_char_whitelist: ""});
+    for (const [inv, bin] of [[false, false], [true, false], [false, true]]) {
+      const t = (await wName.recognize(prepCanvas(c, 0, c.width, inv, bin))).data.text.replace(/\s+/g, " ").trim();
+      if (t) out.push(t);
+    }
+  } catch (e) { RAW.push("Name: Fehler " + (e && e.message || e)); }
+  RAW.push("Name: " + (out.join(" | ") || "–"));
+  showRaw();
   return out.join(" ");
 }
 async function nameMatch(num, den, lt) {              // Name lesen und mit der Nummer abgleichen (ohne Anzeige)

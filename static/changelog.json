@@ -5,13 +5,16 @@
    "version": "1.2.7",
    "date": "2026-11-13",
    "de": [
-    "Kamera schneller: Der Name wird schon parallel zur Nummer gelesen. Passen Name und Nummer zusammen, ist die Karte nach einer einzigen Lesung erkannt."
+    "Kamera schneller: Der Name wird schon parallel zur Nummer gelesen. Passen Name und Nummer zusammen, ist die Karte nach einer einzigen Lesung erkannt.",
+    "Kamera: Der Name wird zuverlässiger gelesen (eigene Texterkennung, auch bei farbiger Schrift auf dem Motiv); Diagnose zeigt die Auflösung der Kamera"
    ],
    "en": [
-    "Faster camera: the name is read in parallel with the number. If name and number match, the card is recognised after a single read."
+    "Faster camera: the name is read in parallel with the number. If name and number match, the card is recognised after a single read.",
+    "Camera: names are read more reliably (separate text recognition, also for coloured text on artwork); diagnostics show the camera resolution"
    ],
    "es": [
-    "Cámara más rápida: el nombre se lee a la vez que el número. Si nombre y número coinciden, la carta se reconoce con una sola lectura."
+    "Cámara más rápida: el nombre se lee a la vez que el número. Si nombre y número coinciden, la carta se reconoce con una sola lectura.",
+    "Cámara: el nombre se lee de forma más fiable (reconocimiento de texto propio, también con texto de color sobre la ilustración); el diagnóstico muestra la resolución de la cámara"
    ]
   },
   {

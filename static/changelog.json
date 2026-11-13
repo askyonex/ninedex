@@ -2,22 +2,35 @@
  "_info": "Aenderungen je Version, neueste zuerst. Wird nach einem Update in der App angezeigt (in der Sprache der Oberflaeche) und als Text des GitHub-Releases verwendet. Vor jedem Release einen Eintrag fuer die neue Version anlegen, notfalls nur mit Fehlerbehebungen.",
  "versions": [
   {
-   "version": "1.2.7",
+   "version": "1.2.8",
    "date": "2026-11-13",
    "de": [
-    "Kamera schneller: Der Name wird schon parallel zur Nummer gelesen. Passen Name und Nummer zusammen, ist die Karte nach einer einzigen Lesung erkannt.",
+    "Kamera: neuer Knopf „Rahmen automatisch anpassen“. Die App sucht die Kartenkanten im Bild und stellt Rahmengröße und Höhe selbst ein.",
     "Kamera: Der Name wird zuverlässiger gelesen (eigene Texterkennung, auch bei farbiger Schrift auf dem Motiv); Diagnose zeigt die Auflösung der Kamera",
     "Kamera: Ist die Set-Größe unlesbar (z. B. 38/0 statt 38/084), findet die App die Karte über das Pokémon und die Kartennummer"
    ],
    "en": [
-    "Faster camera: the name is read in parallel with the number. If name and number match, the card is recognised after a single read.",
+    "Camera: new button “Fit frame automatically”. The app finds the card edges in the picture and sets frame size and height itself.",
     "Camera: names are read more reliably (separate text recognition, also for coloured text on artwork); diagnostics show the camera resolution",
     "Camera: if the set size is unreadable (e.g. 38/0 instead of 38/084), the app finds the card via the Pokémon and the card number"
    ],
    "es": [
-    "Cámara más rápida: el nombre se lee a la vez que el número. Si nombre y número coinciden, la carta se reconoce con una sola lectura.",
+    "Cámara: nuevo botón «Ajustar marco automáticamente». La app busca los bordes de la carta en la imagen y ajusta el tamaño y la altura del marco.",
     "Cámara: el nombre se lee de forma más fiable (reconocimiento de texto propio, también con texto de color sobre la ilustración); el diagnóstico muestra la resolución de la cámara",
     "Cámara: si el tamaño de la expansión no se lee (p. ej. 38/0 en vez de 38/084), la app encuentra la carta por el Pokémon y el número"
+   ]
+  },
+  {
+   "version": "1.2.7",
+   "date": "2026-11-13",
+   "de": [
+    "Kamera schneller: Der Name wird schon parallel zur Nummer gelesen. Passen Name und Nummer zusammen, ist die Karte nach einer einzigen Lesung erkannt."
+   ],
+   "en": [
+    "Faster camera: the name is read in parallel with the number. If name and number match, the card is recognised after a single read."
+   ],
+   "es": [
+    "Cámara más rápida: el nombre se lee a la vez que el número. Si nombre y número coinciden, la carta se reconoce con una sola lectura."
    ]
   },
   {

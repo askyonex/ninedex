@@ -98,3 +98,4 @@ translate({0}px,{1}px) scale({2})
 Name:
 Kamera {0}×{1} · Karte {2}×{3} px
 Name: Fehler
+blur(1px)

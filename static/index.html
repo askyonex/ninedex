@@ -368,6 +368,7 @@ textarea{width:100%;padding:8px 10px;font:20px/1.1 var(--vt);background:var(--na
   <div>
     <p>Karte in den gelben Rahmen legen. Die App liest oben den Namen und unten im gestrichelten Bereich die Nummer und gleicht beides ab. Den Rahmen stellst du einmal mit „Rahmengröße“ und „Höhe“ passend ein, das merkt sich das Gerät.</p>
     <p id="zoomHint" class="ocr" style="display:none">Tipp: Mit „Zoom“ die Karte größer holen, bis sie fast das ganze Bild füllt, dann den Rahmen anpassen. Das bringt deutlich mehr Schärfe als die Vergrößerung der Vorschau.</p>
+    <p><button id="autoFrameBtn" class="alt">Rahmen automatisch anpassen</button></p>
     <p><label>Rahmengröße <input type="range" id="cardSize" min="15" max="96" value="45"></label> <label>Höhe <input type="range" id="cardY" min="0" max="100" value="50"></label></p>
     <p><label><input type="checkbox" id="autoScan" checked> Automatisch scannen</label></p>
     <p id="camTools"><label id="zoomL">Zoom <input type="range" id="zoomR"></label><button id="torchBtn" class="alt">Licht</button></p>
@@ -1856,6 +1857,55 @@ function layoutCam() {                                // Rahmen zeichnen; Vorsch
   box.style.width = g.w * s * k + "px"; box.style.height = g.h * s * k + "px";
   box.style.left = mx - g.w * s * k / 2 + "px"; box.style.top = my - g.h * s * k / 2 + "px";
 }
+/* Rahmen automatisch anpassen: Kanten der Karte im Bild suchen (Rechteck 63:88 mit den kräftigsten Kanten ringsum) */
+function findCard(src, sw, sh) {
+  const W = 240, H = Math.round(W * sh / sw), c = document.createElement("canvas"); c.width = W; c.height = H;
+  const x = c.getContext("2d", {willReadFrequently: true}); x.filter = "blur(1px)"; x.drawImage(src, 0, 0, W, H);
+  const p = x.getImageData(0, 0, W, H).data, g = new Float32Array(W * H);
+  for (let i = 0; i < W * H; i++) g[i] = 0.299 * p[i * 4] + 0.587 * p[i * 4 + 1] + 0.114 * p[i * 4 + 2];
+  const gx = new Float32Array(W * H), gy = new Float32Array(W * H);   // Helligkeitssprünge waagerecht / senkrecht
+  for (let y = 1; y < H - 1; y++) for (let i = y * W + 1; i < y * W + W - 1; i++) {
+    gx[i] = Math.abs(g[i + 1 - W] + 2 * g[i + 1] + g[i + 1 + W] - g[i - 1 - W] - 2 * g[i - 1] - g[i - 1 + W]);
+    gy[i] = Math.abs(g[i + W - 1] + 2 * g[i + W] + g[i + W + 1] - g[i - W - 1] - 2 * g[i - W] - g[i - W + 1]);
+  }
+  const mx = (a, i, d) => Math.max(a[i], a[i - d] || 0, a[i + d] || 0);       // Kante darf einen Pixel daneben liegen
+  const CV = new Float32Array((H + 1) * W), RH = new Float32Array(H * (W + 1)); // Summen entlang Spalten bzw. Zeilen
+  for (let xx = 0; xx < W; xx++) for (let y = 0; y < H; y++) CV[(y + 1) * W + xx] = CV[y * W + xx] + mx(gx, y * W + xx, 1);
+  for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) RH[y * (W + 1) + xx + 1] = RH[y * (W + 1) + xx] + mx(gy, y * W + xx, W);
+  const col = (xx, y0, y1) => (CV[y1 * W + xx] - CV[y0 * W + xx]) / Math.max(1, y1 - y0);
+  const row = (y, x0, x1) => (RH[y * (W + 1) + x1] - RH[y * (W + 1) + x0]) / Math.max(1, x1 - x0);
+  let best = {score: 0};
+  for (let h = Math.round(H * 0.15); h <= Math.min(H - 2, Math.round((W - 2) * 88 / 63)); h++) {
+    const w = Math.round(h * 63 / 88), my = Math.round(h * 0.12), mxw = Math.round(w * 0.12);
+    for (let top = 1; top + h < H - 1; top++) {
+      for (let left = Math.max(1, Math.round((W - w) / 2 - W * 0.2)); left <= Math.min(W - w - 2, Math.round((W - w) / 2 + W * 0.2)); left += 1) {
+        const L = col(left, top + my, top + h - my), R = col(left + w, top + my, top + h - my);
+        const T = row(top, left + mxw, left + w - mxw), B = row(top + h, left + mxw, left + w - mxw);
+        const sc = Math.min(L, R) + Math.min(T, B);          // alle vier Seiten müssen eine Kante haben
+        if (sc > best.score) best = {score: sc, h, top, left, w};
+      }
+    }
+  }
+  if (!best.h) return null;
+  let sum = 0; for (let i = 0; i < W * H; i++) sum += gx[i] + gy[i];
+  return {size: best.h / H, top: best.top / H, off: (best.left + best.w / 2) / W - 0.5, strength: best.score / Math.max(1, 2 * sum / (W * H))};
+}
+function autoFrame() {
+  const v = $("#video");
+  if (!v.videoWidth) return show("Die Kamera läuft noch nicht.");
+  const r = findCard(v, v.videoWidth, v.videoHeight);
+  if (!r || r.strength < 1.6) return show("Keine Karte gefunden. Karte mittig vor einen ruhigen, dunkleren Hintergrund legen und noch einmal versuchen.");
+  const vh = v.videoHeight, vw = v.videoWidth;
+  let size = r.size;
+  if (size * vh * 63 / 88 > vw * 0.98) size = vw * 0.98 * 88 / 63 / vh;
+  $("#cardSize").value = Math.round(size * 100 * 1.02);      // etwas Luft, z. B. für die Hülle
+  const h = vh * $("#cardSize").value / 100, top = r.top * vh - (h - r.size * vh) / 2;
+  $("#cardY").value = vh - h > 1 ? Math.round(Math.min(100, Math.max(0, top / (vh - h) * 100))) : 50;
+  for (const id of ["cardSize", "cardY"]) { try { localStorage.setItem(id, $("#" + id).value); } catch (e) {} }
+  AS.key = ""; AS.n = 0; layoutCam();
+  const side = r.off > 0.04 ? "Die Karte liegt etwas rechts von der Mitte, für den Rahmen bitte mittig ausrichten." : r.off < -0.04 ? "Die Karte liegt etwas links von der Mitte, für den Rahmen bitte mittig ausrichten." : "";
+  show(`Rahmen angepasst. ${side}`.trim());
+}
 function cutVideo(v, x, y, w, h) {                    // Ausschnitt des Kamerabilds in voller Auflösung
   x = Math.max(0, Math.round(x)); y = Math.max(0, Math.round(y));
   w = Math.max(8, Math.min(v.videoWidth - x, Math.round(w))); h = Math.max(8, Math.min(v.videoHeight - y, Math.round(h)));
@@ -2187,6 +2237,7 @@ for (const id of ["cardSize", "cardY"]) {                 // Einstellungen des K
   try { const sv = localStorage.getItem(id); if (sv !== null) $("#" + id).value = sv; } catch (e) {}
   $("#" + id).addEventListener("input", () => { try { localStorage.setItem(id, $("#" + id).value); } catch (e) {} AS.key = ""; AS.n = 0; layoutCam(); });
 }
+$("#autoFrameBtn").onclick = autoFrame;
 $("#video").addEventListener("loadedmetadata", layoutCam); $("#video").addEventListener("resize", layoutCam);
 window.addEventListener("resize", layoutCam); layoutCam();
 $("#dbg").onchange = e => { $("#cam").classList.toggle("dbg", e.target.checked); };

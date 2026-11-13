@@ -23,7 +23,7 @@ DB = os.environ.get("DB_PATH", "pokedex.db")  # fuer Docker: /data/pokedex.db
 TCG = "https://api.tcgdex.net/v2"
 POKE = "https://pokeapi.co/api/v2"
 LANGS = ["de", "en", "ja"]
-I18N_VERSION = "10"  # bei geaenderten Uebersetzungen erhoehen, damit Browser das neue Woerterbuch laden
+I18N_VERSION = "11"  # bei geaenderten Uebersetzungen erhoehen, damit Browser das neue Woerterbuch laden
 
 app = Flask(__name__, static_folder="static")
 progress = {"done": 0, "total": 0, "running": False}
@@ -1956,6 +1956,27 @@ def ai_resolve(info, lang="auto"):
     return cards
 
 
+def detect_by_dex(did, num, den=0, pref=""):
+    """Alle Karten eines Pokemon (in jeder Sprache) mit dieser Nummer. Die Set-Groesse grenzt nur ein, wenn sie passt."""
+    langs = sorted(LANGS, key=lambda l: l != pref)
+    want = num.lstrip("0").lower()
+    cands = []
+    for l in langs:
+        try:
+            lst = dex_brief(l, did)
+        except Exception:
+            continue
+        cands += [(l, c["id"].rsplit("-", 1)[0], c["localId"]) for c in lst if str(c.get("localId", "")).lstrip("0").lower() == want]
+    if den and len(cands) > 1:
+        sizes = {}
+        for l, sid, _ in cands:
+            info = set_info(l, sid) or {}
+            sizes[(l, sid)] = (info.get("cardCount") or {}).get("official")
+        fit = [c for c in cands if sizes.get((c[0], c[1])) == den]
+        cands = fit or cands
+    return slot_cards(cands[:12], num)
+
+
 def name_from_ocr(text):
     """Pokemon-Namen aus dem gelesenen Kopf der Karte ("BASIS Forgita KP70") holen, auch bei Lesefehlern ("Forgila").
     Rueckgabe (Pokedex-Nr. oder None, Name fuer die Suche oder "")."""
@@ -1993,10 +2014,8 @@ def scan_match():
         if did and cards:
             same = [c for c in cards if c.get("dex_id") == did]
             agreed, cards = bool(same), same or cards
-    if num and name and not agreed:  # Nummer passt nicht zum Namen oder Set-Groesse unlesbar: ueber den Namen suchen
-        by_name = detect_by_name(name, num, pref)
-        if did:
-            by_name = [c for c in by_name if c.get("dex_id") in (did, None)] or by_name
+    if num and (did or name) and not agreed:  # Nummer passt nicht zum Namen oder Set-Groesse unlesbar: ueber das Pokemon bzw. den Namen suchen
+        by_name = detect_by_dex(did, num, den, pref) if did else detect_by_name(name, num, pref)
         if by_name:
             cards, agreed = by_name, True
     if name and cards and not did:

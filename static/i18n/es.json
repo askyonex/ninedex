@@ -488,6 +488,7 @@
  "Nr. {0} · {1}{2}": "N.º {0} · {1}{2}",
  "Nummer": "Número",
  "Nummer unsicher ({0}), lese den Namen …": "Número dudoso ({0}), leyendo el nombre …",
+ "Nummer unsicher ({0}/{1}), lese den Namen …": "Número dudoso ({0}/{1}), leyendo el nombre …",
  "Nächste Frage": "Siguiente pregunta",
  "Nächste Karte im Set": "Siguiente carta del set",
  "Nächste Karte in {0}": "Siguiente carta de {0}",

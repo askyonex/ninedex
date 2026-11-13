@@ -2001,7 +2001,7 @@ function autoDecide(st, r) {                          // zweimal dieselbe Nummer
   if (!r.num) { st.key = ""; st.n = 0; st.blocked = ""; return "none"; }   // keine Nummer im Bild: Karte wurde weggenommen
   if (!r.strong) { st.key = ""; st.n = 0; return "weak"; }
   const key = `${r.num}/${r.den}`;
-  if (key === st.blocked) return "blocked";
+  if (key === st.blocked || key.startsWith(st.blocked + "/")) return "blocked";   // auch, wenn die Karte zuvor über die Nummer allein (ohne Set-Größe) erkannt wurde
   st.n = st.key === key ? st.n + 1 : 1; st.key = key;
   if (st.n >= 2) { st.blocked = key; st.key = ""; st.n = 0; return "accept"; }
   return "wait";
@@ -2088,12 +2088,12 @@ async function autoStep() {
       });
     }
     if (act === "accept") await accept(r, strip, ctx);
-    else if (act === "weak") {                            // Nummer unsicher (z. B. Set-Größe unlesbar): zweimal dieselbe Nummer -> mit dem Namen nachsehen
-      const wk = `${r.num}/${r.den}`;
+    else if (act === "weak") {                            // Set-Größe unsicher (z. B. 38/0, 38/08): zweimal dieselbe Kartennummer -> Pokémon über den Namen bestimmen
+      const wk = String(+r.num || r.num);
       AS.weakN = AS.weakKey === wk ? (AS.weakN || 0) + 1 : 1; AS.weakKey = wk;
-      if (AS.weakN >= 2 && wk !== AS.blocked) {
-        AS.weakN = 0; $("#ocr").textContent = `Nummer unsicher (${wk}), lese den Namen …`;
-        if (await matchScan(r.num, r.den, "")) { AS.blocked = wk; FROM_SCAN = true; sfx("scan"); if (navigator.vibrate) navigator.vibrate(60); }
+      if (AS.weakN >= 2 && wk !== AS.blocked && !String(AS.blocked).startsWith(wk + "/")) {
+        AS.weakN = 0; $("#ocr").textContent = `Nummer unsicher (${r.num}/${r.den}), lese den Namen …`;
+        if (await matchScan(r.num, "", "")) { AS.blocked = wk; FROM_SCAN = true; sfx("scan"); if (navigator.vibrate) navigator.vibrate(60); }
       }
     }
     else if ((act === "none" || act === "weak") && aiMode() === "auto" && !AIS.fired && AIS.stillSince && Date.now() - AIS.stillSince > 2500) {

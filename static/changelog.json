@@ -5,15 +5,18 @@
    "version": "1.2.6",
    "date": "2026-11-13",
    "de": [
-    "Kamera: neuer Lesebereich „Kartenrahmen“ für Halterung oder Stativ. Karte in den Rahmen legen, die App liest gezielt den unteren Kartenrand in hoher Auflösung. Die Vorschau vergrößert den Rahmen automatisch.",
+    "Kamera: Karte in einen Rahmen in Kartenform legen, ideal für eine Handy-Halterung. Die App liest oben den Namen und unten die Nummer und gleicht beides ab, auch wenn die Set-Größe falsch gelesen wird. Der alte Lesestreifen entfällt.",
+    "Kamera: höhere Auflösung, die Vorschau vergrößert den Rahmen automatisch",
     "Kamera: Texte laufen auf dem Handy nicht mehr über den Rand"
    ],
    "en": [
-    "Camera: new reading area “Card frame” for a stand or tripod. Place the card inside the frame and the app reads just the bottom edge of the card in high resolution. The preview zooms to the frame automatically.",
+    "Camera: place the card in a card-shaped frame, ideal for a phone stand. The app reads the name at the top and the number at the bottom and checks them against each other, even if the set size is misread. The old reading strip is gone.",
+    "Camera: higher resolution, the preview zooms to the frame automatically",
     "Camera: texts no longer overflow on phones"
    ],
    "es": [
-    "Cámara: nueva zona de lectura «Marco de carta» para soporte o trípode. Coloca la carta dentro del marco y la app lee solo el borde inferior de la carta en alta resolución. La vista previa amplía el marco automáticamente.",
+    "Cámara: coloca la carta en un marco con forma de carta, ideal para un soporte de móvil. La app lee el nombre arriba y el número abajo y los compara, aunque el tamaño de la expansión se lea mal. Desaparece la antigua franja de lectura.",
+    "Cámara: mayor resolución, la vista previa amplía el marco automáticamente",
     "Cámara: los textos ya no se salen de la pantalla en el móvil"
    ]
   },

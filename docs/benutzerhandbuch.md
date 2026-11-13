@@ -14,7 +14,7 @@
 
 **Per Nummer.** Tippe die Nummer so ein, wie sie auf der Karte steht, z. B. `147/196` (der Teil hinter dem Schrägstrich ist die Größe des Sets). Die App findet Set und Sprache (Deutsch, Englisch, Japanisch) selbst. Passen mehrere Karten (z. B. dieselbe Karte auf Deutsch und Englisch), wählst du die richtige. Wählst du vorher Set und Sprache aus, reicht die Nummer allein (`147`). Nummern mit Buchstaben gehen genauso, z. B. `TG24/TG30` (Trainer-Galerie), `GG05/GG70` (Galar-Galerie) oder `SV107/SV122` (Shiny-Tresor). Mehrere Sets nutzen dieselbe Nummerierung, meist wählst du deshalb aus wenigen Treffern.
 
-**Per Kamera.** Klicke auf die blaue Linse, erlaube den Kamerazugriff und halte die Karte so, dass die Nummer im gelben Rahmen liegt (der Regler ändert die Höhe).
+**Per Kamera.** Klicke auf die blaue Linse, erlaube den Kamerazugriff und leg die Karte in den gelben Rahmen in Kartenform. Die App liest oben den Namen und unten (gestrichelter Bereich) die Nummer und gleicht beides ab: Passt der Name zur Nummer, ist die Karte sicher erkannt; ist die Set-Größe unlesbar oder falsch gelesen, findet sie die Karte über den Namen. Mit „Rahmengröße“ und „Höhe“ stellst du den Rahmen einmal passend ein, ideal für eine Handy-Halterung; das Gerät merkt sich die Einstellung.
 - Die App liest laufend mit. Nach **zweimal derselben Nummer in Folge** ist die Karte erkannt, der Ergebnis-Dialog erscheint und das Gerät vibriert (Android).
 - Bestätigen, dann die Karte kurz aus dem Bild nehmen und die nächste hinhalten. Dieselbe Karte wird nicht doppelt erkannt, solange sie im Bild bleibt.
 - *Jetzt scannen*, die Leertaste oder ein Tipp aufs Videobild liest sofort und gründlicher.

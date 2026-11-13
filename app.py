@@ -23,7 +23,7 @@ DB = os.environ.get("DB_PATH", "pokedex.db")  # fuer Docker: /data/pokedex.db
 TCG = "https://api.tcgdex.net/v2"
 POKE = "https://pokeapi.co/api/v2"
 LANGS = ["de", "en", "ja"]
-I18N_VERSION = "7"  # bei geaenderten Uebersetzungen erhoehen, damit Browser das neue Woerterbuch laden
+I18N_VERSION = "8"  # bei geaenderten Uebersetzungen erhoehen, damit Browser das neue Woerterbuch laden
 
 app = Flask(__name__, static_folder="static")
 progress = {"done": 0, "total": 0, "running": False}
@@ -1954,6 +1954,55 @@ def ai_resolve(info, lang="auto"):
         cards.sort(key=lambda c: -sim(c))
         cards = [c for c in cards if sim(c) >= 0.5] or cards
     return cards
+
+
+def name_from_ocr(text):
+    """Pokemon-Namen aus dem gelesenen Kopf der Karte ("BASIS Forgita KP70") holen, auch bei Lesefehlern ("Forgila").
+    Rueckgabe (Pokedex-Nr. oder None, Name fuer die Suche oder "")."""
+    text = re.sub(r"\b(basis|basic|phase|stage|stufe|kp|hp)\s*\d*\b", " ", str(text), flags=re.I)
+    did = guess_dex(text)
+    idx = name_index()
+    if not did:
+        words = [w for w in re.findall(r"[A-Za-zÄÖÜäöüßéÉ'’.-]{4,}", text)]
+        best = (0.0, None)
+        for w in words:
+            for hit in difflib.get_close_matches(w.lower(), idx["latin"].keys(), n=1, cutoff=0.78):
+                sc = difflib.SequenceMatcher(None, w.lower(), hit).ratio()
+                if sc > best[0]:
+                    best = (sc, idx["latin"][hit])
+        did = best[1]
+    if did:
+        row = q("SELECT name, name_en FROM pokemon WHERE id=?", (did,))
+        return did, (row[0]["name"] if row else "") or ""
+    words = re.findall(r"[A-Za-zÄÖÜäöüß'’.-]{3,}", text)  # Trainer- oder Energiekarte: laengste Woerter als Suchbegriff
+    return None, " ".join(sorted(words, key=len, reverse=True)[:2])
+
+
+@app.post("/api/scan-match")
+def scan_match():
+    """Kamera ohne KI: Name (oben auf der Karte) und Nummer (unten) gemeinsam auswerten.
+    Passt der Name zu einem Treffer ueber die Nummer, ist die Karte sicher; sonst wird ueber den Namen gesucht."""
+    d = request.json or {}
+    num = re.sub(r"\s+", "", str(d.get("num") or "")).lstrip("0") or ""
+    den = int(d["den"]) if str(d.get("den") or "").isdigit() else 0
+    lang, pref = d.get("lang", "auto"), d.get("pref", "")
+    did, name = name_from_ocr(d.get("name_text", ""))
+    cards, agreed = [], False
+    if num and den:
+        cards = detect_cards(num, den, "", lang, pref)
+        if did and cards:
+            same = [c for c in cards if c.get("dex_id") == did]
+            agreed, cards = bool(same), same or cards
+    if num and name and not agreed:  # Nummer passt nicht zum Namen oder Set-Groesse unlesbar: ueber den Namen suchen
+        by_name = detect_by_name(name, num, pref)
+        if did:
+            by_name = [c for c in by_name if c.get("dex_id") in (did, None)] or by_name
+        if by_name:
+            cards, agreed = by_name, True
+    if name and cards and not did:
+        sim = lambda c: difflib.SequenceMatcher(None, name.lower(), (c.get("name") or "").lower()).ratio()
+        cards.sort(key=lambda c: -sim(c))
+    return jsonify(ok=True, dex_id=did, name=name, agreed=agreed, cards=cards[:12])
 
 
 @app.post("/api/ai-scan")
